@@ -60,7 +60,7 @@ class Handler(BaseHTTPRequestHandler):
             log(f"<<< RESPONSE ({elapsed:.2f}s)")
             preview = response_text[:200] + "..." if len(response_text) > 200 else response_text
             log(f"    LLM response: {preview}")
-            log(f"    Tokens: {result.get(tokens_predicted, N/A)}")
+            log(f"    Tokens: {result.get("tokens_predicted", "N/A")}")
             
             self._send(200, {"response": response_text})
         except Exception as e:
