@@ -23,7 +23,18 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
-        self.wfile.write(json.dumps(body).encode())
+        self.wfile.write(json.dumps(body, indent=2).encode())
+
+    def _format_response(self, text):
+        """Format LLM response - pretty-print if JSON, otherwise clean up text."""
+        text = text.strip()
+        # Try to parse as JSON and pretty-print
+        try:
+            parsed = json.loads(text)
+            return json.dumps(parsed, indent=2)
+        except json.JSONDecodeError:
+            # Not JSON, return cleaned text
+            return text
 
     def do_POST(self):
         client = f"{self.client_address[0]}:{self.client_address[1]}"
@@ -55,14 +66,15 @@ class Handler(BaseHTTPRequestHandler):
                 result = json.loads(res.read().decode())
             
             response_text = result.get("content", "").strip()
+            formatted_response = self._format_response(response_text)
             elapsed = time.time() - start
-            
+
             log(f"<<< RESPONSE ({elapsed:.2f}s)")
-            preview = response_text[:200] + "..." if len(response_text) > 200 else response_text
+            preview = formatted_response[:200] + "..." if len(formatted_response) > 200 else formatted_response
             log(f"    LLM response: {preview}")
-            log(f"    Tokens: {result.get("tokens_predicted", "N/A")}")
-            
-            self._send(200, {"response": response_text})
+            log(f"    Tokens: {result.get('tokens_predicted', 'N/A')}")
+
+            self._send(200, {"response": formatted_response})
         except Exception as e:
             elapsed = time.time() - start
             log(f"!!! ERROR ({elapsed:.2f}s): {e}")
