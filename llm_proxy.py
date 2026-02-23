@@ -9,7 +9,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 # ============== EASY CONFIG ==============
 LLAMA_URL = "http://127.0.0.1:8080/completion"
 PORT = 8081
-N_PREDICT = 256
+N_PREDICT = 512
 
 SYSTEM_PROMPT = """You are a phone assistant. When greeted or asked what you can do, respond in plain conversational text listing these options: 1) Set an alarm, 2) Send a text message, 3) Play Spotify, 4) Send an email, 5) Read notifications. Once the user chooses an action, respond with ONLY a raw JSON object, no markdown, no backticks, no explanation. Use EXACTLY these action names: set_alarm, send_sms, play_spotify, send_email, get_notifications. Format: {\"action\":\"set_alarm\",\"params\":{\"time\":\"7:00 AM\"}}. If unclear, ask one clarifying question."""
 # =========================================
