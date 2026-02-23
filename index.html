@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Chat</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        h1 { color: #fff; margin-bottom: 20px; }
+        #chat {
+            border: 1px solid #333;
+            border-radius: 8px;
+            height: 400px;
+            overflow-y: auto;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: #252525;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .user {
+            background: #2563eb;
+            margin-left: 20%;
+        }
+        .assistant {
+            background: #374151;
+            margin-right: 20%;
+        }
+        .error {
+            background: #991b1b;
+            margin-right: 20%;
+        }
+        .loading {
+            background: #374151;
+            margin-right: 20%;
+            color: #9ca3af;
+        }
+        .loading::after {
+            content: '';
+            animation: dots 1.5s infinite;
+        }
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+        #input-area {
+            display: flex;
+            gap: 10px;
+        }
+        #prompt {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background: #252525;
+            color: #e0e0e0;
+            font-size: 16px;
+        }
+        #prompt:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+        button {
+            padding: 12px 24px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover { background: #1d4ed8; }
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+        #config {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #252525;
+            border-radius: 8px;
+        }
+        #config label { margin-right: 10px; }
+        #config input {
+            padding: 6px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <h1>LLM Chat</h1>
+    <div id="config">
+        <label>Server: <input type="text" id="server" value="http://localhost:8081"></label>
+    </div>
+    <div id="chat"></div>
+    <div id="input-area">
+        <input type="text" id="prompt" placeholder="Type your message..." autofocus>
+        <button id="send">Send</button>
+    </div>
+
+    <script>
+        const chat = document.getElementById('chat');
+        const prompt = document.getElementById('prompt');
+        const sendBtn = document.getElementById('send');
+        const serverInput = document.getElementById('server');
+
+        function addMessage(text, type) {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.textContent = text;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+            return div;
+        }
+
+        function showLoading() {
+            const div = addMessage('Thinking', 'loading');
+            div.id = 'loading';
+            return div;
+        }
+
+        function removeLoading() {
+            const loading = document.getElementById('loading');
+            if (loading) loading.remove();
+        }
+
+        async function sendMessage() {
+            const text = prompt.value.trim();
+            if (!text) return;
+
+            addMessage(text, 'user');
+            prompt.value = '';
+            sendBtn.disabled = true;
+            showLoading();
+
+            try {
+                const res = await fetch(serverInput.value, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: text })
+                });
+                removeLoading();
+                const data = await res.json();
+                if (data.error) {
+                    addMessage(`Error: ${data.error}`, 'error');
+                } else {
+                    addMessage(data.response, 'assistant');
+                }
+            } catch (err) {
+                removeLoading();
+                addMessage(`Failed to connect: ${err.message}`, 'error');
+            }
+
+            sendBtn.disabled = false;
+            prompt.focus();
+        }
+
+        sendBtn.addEventListener('click', sendMessage);
+        prompt.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+    </script>
+</body>
+</html>

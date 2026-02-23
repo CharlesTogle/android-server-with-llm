@@ -19,11 +19,22 @@ def log(msg):
     print(f"[{ts}] {msg}")
 
 class Handler(BaseHTTPRequestHandler):
+    def _cors_headers(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+
     def _send(self, code, body):
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
+        self._cors_headers()
         self.end_headers()
         self.wfile.write(json.dumps(body, indent=2).encode())
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self._cors_headers()
+        self.end_headers()
 
     def _format_response(self, text):
         """Format LLM response - pretty-print if JSON, otherwise clean up text."""
