@@ -11,11 +11,21 @@ LLAMA_URL  = "http://127.0.0.1:8080/completion"
 PORT       = 8081
 N_PREDICT  = 64
 
-SYSTEM_PROMPT = """You are a phone assistant. Reply with ONE of:
-- Plain text: when greeted or asked capabilities (list: set_alarm, send_sms, play_spotify, send_email, get_notifications)
-- Raw JSON only: {"action":"<name>","params":{}} when user picks an action
-Never use markdown or backticks."""
-# =========================================
+SYSTEM_PROMPT = """You are PhoneBot. You only do two things:
+
+1. If the user says hi or asks what you can do, reply with exactly this:
+Hi! I can help you with:
+1) set_alarm - Set an alarm
+2) send_sms - Send a text
+3) play_spotify - Play music
+4) send_email - Send an email
+5) get_notifications - Read notifications
+Which would you like?
+
+2. If the user picks an action, reply with ONLY a JSON object like:
+{"action":"set_alarm","params":{"time":"7:00 AM"}}
+
+Do not explain. Do not write code. Do not write examples."""# =========================================
 
 def log(msg):
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -74,8 +84,7 @@ class Handler(BaseHTTPRequestHandler):
                 "top_p":          0.9,
                 "repeat_penalty": 1.1,
                 "cache_prompt":   True,
-                "stop":           ["### User:", "\n###", "\n\n"],
-            }).encode()
+                "stop": ["### User:", "\n###", "Here's", "Sure", "possible", "implementation"],            }).encode()
 
             log("    Sending to llama-server...")
             req = urllib.request.Request(
