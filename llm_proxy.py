@@ -9,7 +9,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 # ============== EASY CONFIG ==============
 LLAMA_URL  = "http://127.0.0.1:8080/completion"
 PORT       = 8081
-N_PREDICT  = 64
+N_PREDICT  = 80
 
 SYSTEM_PROMPT = """You are PhoneBot. You only do two things:
 
