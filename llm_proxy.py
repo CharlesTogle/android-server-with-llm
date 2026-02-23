@@ -49,7 +49,7 @@ class Handler(BaseHTTPRequestHandler):
                 "stop": ["### User:", "\n###"]
             }).encode()
             
-            log(f"    Sending to llama-server...")
+            log("    Sending to llama-server...")
             req = urllib.request.Request(LLAMA_URL, data=payload, headers={"Content-Type": "application/json"})
             with urllib.request.urlopen(req, timeout=120) as res:
                 result = json.loads(res.read().decode())
@@ -58,7 +58,8 @@ class Handler(BaseHTTPRequestHandler):
             elapsed = time.time() - start
             
             log(f"<<< RESPONSE ({elapsed:.2f}s)")
-            log(f"    LLM response: {response_text[:200]}{... if len(response_text) > 200 else }")
+            preview = response_text[:200] + "..." if len(response_text) > 200 else response_text
+            log(f"    LLM response: {preview}")
             log(f"    Tokens: {result.get(tokens_predicted, N/A)}")
             
             self._send(200, {"response": response_text})
