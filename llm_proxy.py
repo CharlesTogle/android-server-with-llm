@@ -7,11 +7,14 @@ from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # ============== EASY CONFIG ==============
-LLAMA_URL = "http://127.0.0.1:8080/completion"
-PORT = 8081
-N_PREDICT = 512
+LLAMA_URL  = "http://127.0.0.1:8080/completion"
+PORT       = 8081
+N_PREDICT  = 64
 
-SYSTEM_PROMPT = """You are a phone assistant. When greeted or asked what you can do, respond in plain conversational text listing these options: 1) Set an alarm, 2) Send a text message, 3) Play Spotify, 4) Send an email, 5) Read notifications. Once the user chooses an action, respond with ONLY a raw JSON object, no markdown, no backticks, no explanation. Use EXACTLY these action names: set_alarm, send_sms, play_spotify, send_email, get_notifications. Format: {\"action\":\"set_alarm\",\"params\":{\"time\":\"7:00 AM\"}}. If unclear, ask one clarifying question."""
+SYSTEM_PROMPT = """You are a phone assistant. Reply with ONE of:
+- Plain text: when greeted or asked capabilities (list: set_alarm, send_sms, play_spotify, send_email, get_notifications)
+- Raw JSON only: {"action":"<name>","params":{}} when user picks an action
+Never use markdown or backticks."""
 # =========================================
 
 def log(msg):
@@ -37,68 +40,78 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def _format_response(self, text):
-        """Format LLM response - pretty-print if JSON, otherwise clean up text."""
         text = text.strip()
-        # Try to parse as JSON and pretty-print
         try:
             parsed = json.loads(text)
             return json.dumps(parsed, indent=2)
         except json.JSONDecodeError:
-            # Not JSON, return cleaned text
             return text
 
     def do_POST(self):
         client = f"{self.client_address[0]}:{self.client_address[1]}"
-        log(f">>> REQUEST from {client}")
-        log(f"    Path: {self.path}")
-        log(f"    Headers: {dict(self.headers)}")
-        
+        log(f">>> REQUEST from {client} — {self.path}")
+
         start = time.time()
         try:
             length = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(length).decode()
-            data = json.loads(body)
+            body   = self.rfile.read(length).decode()
+            data   = json.loads(body)
             user_prompt = data.get("prompt", "")
-            
-            log(f"    Body: {body}")
-            log(f"    User prompt: {user_prompt}")
-            
-            prompt = f"### System:\n{SYSTEM_PROMPT}\n\n### User:\n{user_prompt}\n\n### Assistant:\n"
-            
+
+            log(f"    Prompt: {user_prompt}")
+
+            prompt = (
+                f"### System:\n{SYSTEM_PROMPT}\n\n"
+                f"### User:\n{user_prompt}\n\n"
+                f"### Assistant:\n"
+            )
+
             payload = json.dumps({
-                "prompt": prompt,
-                "n_predict": N_PREDICT,
-                "stop": ["### User:", "\n###"]
+                "prompt":         prompt,
+                "n_predict":      N_PREDICT,
+                "temperature":    0.1,
+                "top_k":          10,
+                "top_p":          0.9,
+                "repeat_penalty": 1.1,
+                "cache_prompt":   True,
+                "stop":           ["### User:", "\n###", "\n\n"],
             }).encode()
-            
+
             log("    Sending to llama-server...")
-            req = urllib.request.Request(LLAMA_URL, data=payload, headers={"Content-Type": "application/json"})
+            req = urllib.request.Request(
+                LLAMA_URL,
+                data=payload,
+                headers={"Content-Type": "application/json"},
+            )
             with urllib.request.urlopen(req, timeout=120) as res:
                 result = json.loads(res.read().decode())
-            
-            response_text = result.get("content", "").strip()
-            formatted_response = self._format_response(response_text)
-            elapsed = time.time() - start
 
-            log(f"<<< RESPONSE ({elapsed:.2f}s)")
+            response_text      = result.get("content", "").strip()
+            formatted_response = self._format_response(response_text)
+            elapsed            = time.time() - start
+
             preview = formatted_response[:200] + "..." if len(formatted_response) > 200 else formatted_response
-            log(f"    LLM response: {preview}")
-            log(f"    Tokens: {result.get('tokens_predicted', 'N/A')}")
+            log(f"<<< RESPONSE ({elapsed:.2f}s) — {result.get('tokens_predicted', 'N/A')} tokens")
+            log(f"    {preview}")
 
             self._send(200, {"response": formatted_response})
+
         except Exception as e:
             elapsed = time.time() - start
             log(f"!!! ERROR ({elapsed:.2f}s): {e}")
             self._send(500, {"error": str(e)})
 
     def log_message(self, format, *args):
-        log(f"    HTTP: {format % args}")
+        pass  # suppress default HTTP logs, we handle our own
+
 
 if __name__ == "__main__":
     log("=" * 50)
     log("LLM Proxy Server Starting")
-    log(f"  Listening on: http://0.0.0.0:{PORT}")
-    log(f"  Backend: {LLAMA_URL}")
-    log(f"  n_predict: {N_PREDICT}")
+    log(f"  Listening on : http://0.0.0.0:{PORT}")
+    log(f"  Backend      : {LLAMA_URL}")
+    log(f"  n_predict    : {N_PREDICT}")
+    log(f"  temperature  : 0.1")
+    log(f"  cache_prompt : True")
     log("=" * 50)
     HTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
